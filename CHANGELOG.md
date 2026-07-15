@@ -1,6 +1,9 @@
 Unreleased
 ----------
 
+* Add support for a local (PC) joystick / gamepad via the browser Gamepad API, with Kempston, Cursor and Sinclair mappings selectable via the `joystickType` option, the Joystick menu, or the `setJoystickType` API endpoint (Goran Devic)
+* Add `joystickEnabled` configuration option (Goran Devic)
+* Add controller selection when more than one gamepad is connected, via the Controller menu, the `joystickDevice` option, or the `setJoystickDevice` API endpoint (Goran Devic)
 * Keep running - with audio - while the page is hidden, by handing frame
   pacing to the emulation worker, whose timers are not throttled in
   background tabs. Controlled by the "Run in background" File menu option
