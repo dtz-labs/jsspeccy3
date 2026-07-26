@@ -18,6 +18,16 @@ import exitFullscreenIcon from './icons/exitfullscreen.svg';
 import tapePlayIcon from './icons/tape_play.svg';
 import tapePauseIcon from './icons/tape_pause.svg';
 
+const ROMS_BY_MACHINE = {
+    48: [['roms/48.rom', 10]],
+    128: [['roms/128-0.rom', 8], ['roms/128-1.rom', 9]],
+    // Pentagon runs its own ROM 0 but shares the 128K's ROM 1, and needs
+    // TRDOS for the betadisk interface
+    5: [['roms/pentagon-0.rom', 12], ['roms/128-1.rom', 9], ['roms/trdos.rom', 13]],
+    2048: [['roms/tc2048.rom', 14]],
+    2068: [['roms/2068-home.rom', 15], ['roms/2068-exrom.rom', 16]],
+};
+
 const scriptUrl = document.currentScript.src;
 
 class Emulator extends EventEmitter {
@@ -51,12 +61,12 @@ class Emulator extends EventEmitter {
         this.fileOpenPromiseResolutions = {};
 
         this.onReadyHandlers = [];
+        this.romLoadPromises = {};
 
         this.worker.onmessage = (e) => {
             switch(e.data.message) {
                 case 'ready':
-                    this.loadRoms().then(() => {
-                        this.setMachine(opts.machine || 128);
+                    this.setMachine(opts.machine || 128).then(() => {
                         this.setTapeTraps(this.tapeTrapsEnabled);
                         if (opts.openUrl) {
                             this.openUrlList(opts.openUrl).catch(err => {
@@ -192,15 +202,19 @@ class Emulator extends EventEmitter {
         });
     }
 
-    async loadRoms() {
-        await this.loadRom('roms/128-0.rom', 8);
-        await this.loadRom('roms/128-1.rom', 9);
-        await this.loadRom('roms/48.rom', 10);
-        await this.loadRom('roms/pentagon-0.rom', 12);
-        await this.loadRom('roms/tc2048.rom', 14);
-        await this.loadRom('roms/2068-home.rom', 15);
-        await this.loadRom('roms/2068-exrom.rom', 16);
-        await this.loadRom('roms/trdos.rom', 13);
+    /* Fetch only the ROMs the given machine actually needs, in parallel, and
+    never fetch the same image twice - the Pentagon shares 128-1.rom with the
+    128K. Previously every machine's ROMs were fetched at startup, one after
+    another, so starting a plain 48K cost eight sequential round trips for
+    120K of images of which it used 16K. */
+    loadRomsForMachine(type) {
+        const roms = ROMS_BY_MACHINE[type] || ROMS_BY_MACHINE[48];
+        return Promise.all(roms.map(([url, page]) => {
+            if (!(url in this.romLoadPromises)) {
+                this.romLoadPromises[url] = this.loadRom(url, page);
+            }
+            return this.romLoadPromises[url];
+        }));
     }
 
 
@@ -245,12 +259,20 @@ class Emulator extends EventEmitter {
         if (type != 128 && type != 5 && type != 2048 && type != 2068) type = 48;
         // Timex machines render 512px-wide hi-res, so they need a wider canvas
         this.displayHandler.setVideoMode(type == 2048 || type == 2068);
-        this.worker.postMessage({
-            message: 'setMachineType',
-            type,
-        });
         this.machineType = type;
         this.emit('setMachine', type);
+
+        /* The core cannot be switched until the machine's ROM is in place, so
+        this is asynchronous. It still returns immediately for callers that do
+        not care; the returned promise is there for those that do. */
+        return this.loadRomsForMachine(type).then(() => {
+            // a later setMachine call wins over this one
+            if (this.machineType !== type) return;
+            this.worker.postMessage({
+                message: 'setMachineType',
+                type,
+            });
+        });
     }
 
     reset() {
@@ -259,15 +281,25 @@ class Emulator extends EventEmitter {
 
     loadSnapshot(snapshot) {
         const fileID = this.nextFileOpenID++;
-        this.worker.postMessage({
-            message: 'loadSnapshot',
-            id: fileID,
-            snapshot,
-        })
+        this.machineType = snapshot.model;
+        this.displayHandler.setVideoMode(
+            snapshot.model == 2048 || snapshot.model == 2068
+        );
         this.emit('setMachine', snapshot.model);
-        return new Promise((resolve, reject) => {
+        const promise = new Promise((resolve, reject) => {
             this.fileOpenPromiseResolutions[fileID] = resolve;
         });
+        /* A snapshot can select a machine the user never picked from the menu,
+        whose ROM has therefore not been fetched, so wait for it before handing
+        the snapshot to the core. */
+        this.loadRomsForMachine(snapshot.model).then(() => {
+            this.worker.postMessage({
+                message: 'loadSnapshot',
+                id: fileID,
+                snapshot,
+            });
+        });
+        return promise;
     }
 
     openTAPFile(data) {
