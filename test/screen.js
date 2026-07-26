@@ -67,8 +67,18 @@ function testTC2048StandardMode() {
     check(name, 'attr', frame[p + 1], 0x47);
 }
 
+function testTC2048TapeTrap() {
+    const name = 'TC2048 tape trap';
+    core.setMachineType(2048);
+    core.setTapeTraps(true);
+    core.setPC(0x056b);
+    check(name, 'status', core.runFrame(), 2);
+    core.setTapeTraps(false);
+}
+
 test48KBaseline();
 testTC2048StandardMode();
+testTC2048TapeTrap();
 
 if (failureCount) {
     console.log(`${failureCount} screen test failure(s)`);
