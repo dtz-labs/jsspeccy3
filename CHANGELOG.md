@@ -15,6 +15,26 @@ Unreleased
   pages, which read past the end of the array
 * Fix a frame buffer view in the worker that passed a size where an end offset
   was expected
+* Give the Timex machines tape loader snapshots of their own, so auto-loading a
+  tape no longer switches the emulator back to a 48K, and generate them with
+  `tools/make-tapeloader.js` rather than hand-patching a copy
+* Fix the SZX halted flag being read from past the end of the Z80R block, which
+  restored every snapshot with the CPU halted and corrupted PC by one byte at
+  the first interrupt afterwards
+* Fix the tape trap testing its entry addresses against a combined set of ROM
+  pages instead of pairing each address with the ROM it belongs to
+* Fix the test suite's WebAssembly import path, which pointed at a location
+  the build never wrote to - the Z80 instruction tests had not been running.
+  The suite now also exits non-zero on failure
+* Tests no longer need `--experimental-wasm-modules`; the core is instantiated
+  directly rather than through Node's experimental WebAssembly ESM integration
+* Add GitHub Actions CI, running the test suites on Node 20, 22 and 24 and
+  verifying a release build
+* Upgrade webpack and webpack-cli so the build works on current Node versions;
+  webpack-cli 4 could not load the ESM config, and webpack 5.44 needed
+  `--openssl-legacy-provider` for its MD4 hashing
+* Publish a playable build to GitHub Pages, and attach a packaged build to
+  tagged releases
 
 
 3.2 (2024-11-23)
