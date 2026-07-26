@@ -83,9 +83,15 @@ export function parseZ80File(data) {
         const isVersion2 = (additionalHeaderLength == 23);
         snapshot.registers.PC = file.getUint16(32, true);
         const machineId = file.getUint8(34);
-        const is48K = (isVersion2 ? machineId < 3 : machineId < 4);
-        snapshot.model = (is48K ? 48 : 128);
-        if (!is48K) {
+        /* hardware mode 14 is the Timex TC2048, which has a 48K memory layout;
+        for it, byte 35 holds the last value written to the SCLD port 0xFF
+        rather than the 128K paging flags */
+        const isTC2048 = (machineId == 14);
+        const is48K = isTC2048 || (isVersion2 ? machineId < 3 : machineId < 4);
+        snapshot.model = isTC2048 ? 2048 : (is48K ? 48 : 128);
+        if (isTC2048) {
+            snapshot.ulaState.timexScreenMode = file.getUint8(35);
+        } else if (!is48K) {
             snapshot.ulaState.pagingFlags = file.getUint8(35);
         }
         const tstateChunkSize = (is48K ? 69888 : 70908) / 4;
@@ -233,6 +239,7 @@ export function parseSZXFile(data) {
     const fileLen = data.byteLength;
     const snapshot = {
         memoryPages: {},
+        ulaState: {},
     };
 
     if (getSZXIDString(file, 0) != 'ZXST') {
@@ -250,6 +257,9 @@ export function parseSZXFile(data) {
             break;
         case 7:
             snapshot.model = 5;
+            break;
+        case 8:  // ZXSTMID_TC2048
+            snapshot.model = 2048;
             break;
         default:
             throw "Unsupported machine type: " + machineId;
@@ -288,12 +298,18 @@ export function parseSZXFile(data) {
 
                 break;
             case 'SPCR':
-                snapshot.ulaState = {
-                    borderColour: file.getUint8(offset + 0),
-                    pagingFlags: file.getUint8(offset + 1),
-                };
+                // merge rather than replace, so block ordering cannot clobber
+                // fields set by other blocks such as SCLD
+                snapshot.ulaState.borderColour = file.getUint8(offset + 0);
+                snapshot.ulaState.pagingFlags = file.getUint8(offset + 1);
                 // currently ignored:
                 // ch1ffd, chEff7, chFe
+                break;
+            case 'SCLD':
+                /* Timex SCLD registers; byte 0 is the last value written to
+                port 0xFF, which selects the screen mode */
+                snapshot.ulaState.timexScreenMode = file.getUint8(offset + 0);
+                // currently ignored: chEff7
                 break;
             case 'RAMP':
                 const isCompressed = file.getUint16(offset + 0, true) & 0x0001;
