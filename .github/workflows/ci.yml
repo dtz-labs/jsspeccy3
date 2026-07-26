@@ -15,6 +15,14 @@ jobs:
   test:
     name: Test (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
+    # A branch in this repository fires both `push` and `pull_request` once a
+    # PR is open, which would run everything twice. Take the push event for
+    # our own branches and the pull_request event for forks, so every commit
+    # is tested exactly once either way.
+    if: >-
+      github.event_name == 'push' ||
+      github.event.pull_request.head.repo.full_name != github.repository
+
     strategy:
       fail-fast: false
       matrix:
@@ -63,6 +71,13 @@ jobs:
   build:
     name: Build bundle
     runs-on: ubuntu-latest
+    # A branch in this repository fires both `push` and `pull_request` once a
+    # PR is open, which would run everything twice. Take the push event for
+    # our own branches and the pull_request event for forks, so every commit
+    # is tested exactly once either way.
+    if: >-
+      github.event_name == 'push' ||
+      github.event.pull_request.head.repo.full_name != github.repository
 
     steps:
       - uses: actions/checkout@v4
