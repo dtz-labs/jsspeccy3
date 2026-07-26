@@ -7,6 +7,8 @@ Unreleased
 * Add Timex TC2068 machine support (PAL): HOME and EXROM banks, the 8K
   horizontal MMU on port 0xF4, DOCK/EXROM selection via bit 7 of the SCLD
   register, and AY-3-8912 sound on ports 0xF5 / 0xF6
+* Only fetch the ROM images the selected machine actually needs, in parallel,
+  instead of fetching every machine's ROMs sequentially at startup
 * Load TC2048 snapshots (SZX machine ID 8, .z80 hardware mode 14), restoring
   the SCLD screen mode
 * Fix `pageIsContended` being too small to cover the Pentagon and TRDOS ROM
