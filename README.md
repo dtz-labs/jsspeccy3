@@ -2,6 +2,12 @@
 
 A ZX Spectrum emulator for the browser
 
+**[Try it live](https://dtz-labs.github.io/jsspeccy3/)** — this fork running
+[Timmy](https://www.pouet.net/prod.php?which=64102), the speccy.pl demo written
+for the 30th anniversary of the Timex 2048, on both machines it targets. The
+plain emulator, with no demo loaded, is at
+[/emulator/](https://dtz-labs.github.io/jsspeccy3/emulator/).
+
 ## Features
 
 * Emulates the Spectrum 48K, Spectrum 128K, Pentagon, Timex TC2048 and Timex TC2068 machines
