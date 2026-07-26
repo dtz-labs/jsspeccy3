@@ -106,8 +106,62 @@ function test48KPortFFUnaffected() {
     }
 }
 
+function testTC2048SecondDisplayFile() {
+    const name = 'TC2048 mode 1 (DF1)';
+    selectMachine(2048);
+    core.writePort(0x00ff, 0x01);
+    core.poke(0x4000, 0x11);   // DF0 - must be ignored
+    core.poke(0x5800, 0x22);
+    core.poke(0x6000, 0x3c);   // DF1 bitmap
+    core.poke(0x7800, 0x12);   // DF1 attribute
+    core.runFrame();
+    const p = screenLine(0);
+    check(name, 'bitmap', frame[p], 0x3c);
+    check(name, 'attr', frame[p + 1], 0x12);
+}
+
+function testTC2048HiColour() {
+    const name = 'TC2048 mode 2 (hi-colour)';
+    selectMachine(2048);
+    core.writePort(0x00ff, 0x02);
+    // line 0: bitmap at 0x4000, attribute at 0x6000
+    core.poke(0x4000, 0xaa);
+    core.poke(0x6000, 0x21);
+    // line 1: bitmap at 0x4100, attribute at 0x6100 - proves 8x1 attributes
+    core.poke(0x4100, 0x55);
+    core.poke(0x6100, 0x34);
+    // the classic attribute file must be ignored entirely
+    core.poke(0x5800, 0xff);
+    core.runFrame();
+    const p0 = screenLine(0);
+    check(name, 'line 0 bitmap', frame[p0], 0xaa);
+    check(name, 'line 0 attr', frame[p0 + 1], 0x21);
+    const p1 = screenLine(1);
+    check(name, 'line 1 bitmap', frame[p1], 0x55);
+    check(name, 'line 1 attr', frame[p1 + 1], 0x34);
+}
+
+function testTC2048HiRes() {
+    const name = 'TC2048 mode 6 (hi-res)';
+    selectMachine(2048);
+    core.writePort(0x00ff, 0x06);
+    core.poke(0x4000, 0x11);
+    core.poke(0x6000, 0x22);
+    core.poke(0x4001, 0x33);
+    core.poke(0x6001, 0x44);
+    core.runFrame();
+    const p = screenLine(0);
+    check(name, 'byte 0 (DF0 n)', frame[p], 0x11);
+    check(name, 'byte 1 (DF1 n)', frame[p + 1], 0x22);
+    check(name, 'byte 2 (DF0 n+1)', frame[p + 2], 0x33);
+    check(name, 'byte 3 (DF1 n+1)', frame[p + 3], 0x44);
+}
+
 test48KBaseline();
 testTC2048StandardMode();
+testTC2048SecondDisplayFile();
+testTC2048HiColour();
+testTC2048HiRes();
 testTC2048TapeTrap();
 testTC2048SCLDPortRoundTrip();
 test48KPortFFUnaffected();

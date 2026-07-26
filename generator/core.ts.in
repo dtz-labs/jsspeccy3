@@ -618,6 +618,13 @@ function updateFramebuffer():void {
     /* process all of the screen bytes that are due up to the current tstate */
     const screenBaseAddr:u32 = screenPageIndex << 14;
 
+    /* The Timex test is hoisted out of the loop, so non-Timex machines pay
+    one branch per call rather than one per screen event. */
+    if (timexVideoEnabled) {
+        updateFramebufferTimex(screenBaseAddr);
+        return;
+    }
+
     // end marker is 0xffffffff, which will always be greater than t
     while (screenEvents[screenEventPointer] <= t) {
         const addressWord:u32 = screenEvents[screenEventPointer + 1];
@@ -627,6 +634,43 @@ function updateFramebuffer():void {
         } else {
             const screenAddr:u32 = screenBaseAddr | (addressWord & 0xffff);
             const attributeAddr:u32 = screenBaseAddr | (addressWord >> 16);
+            frameBuffer[framebufferIndex++] = machineMemory[screenAddr];
+            frameBuffer[framebufferIndex++] = machineMemory[attributeAddr];
+            frameBuffer[framebufferIndex++] = machineMemory[screenAddr + 1];
+            floatingBusValue = machineMemory[attributeAddr + 1];
+            frameBuffer[framebufferIndex++] = floatingBusValue;
+        }
+        screenEventPointer += 2;
+    }
+}
+
+function updateFramebufferTimex(screenBaseAddr:u32):void {
+    /* Timex SCLD screen modes. The mode bits are independent enables:
+    bit 0 selects the display file, bit 1 enables hi-colour (one attribute
+    per 8x1 row), bit 2 enables hi-res 512x192, and bit 2 wins over bit 1.
+
+    Hi-colour and hi-res fetch identical addresses - the bitmap byte and the
+    byte 0x2000 above it - and differ only in how the renderer interprets
+    them, so they share a branch here. Every mode emits exactly 4 bytes per
+    16-pixel group, matching the standard frame buffer layout. */
+    const mode:u8 = timexScreenMode & 0x07;
+    while (screenEvents[screenEventPointer] <= t) {
+        const addressWord:u32 = screenEvents[screenEventPointer + 1];
+        if (addressWord == 0xffffffff) {
+            frameBuffer[framebufferIndex++] = borderColour;
+            floatingBusValue = 0xff;
+        } else if (mode & 0x06) {
+            const loAddr:u32 = screenBaseAddr | (addressWord & 0xffff);
+            const hiAddr:u32 = loAddr + 0x2000;
+            frameBuffer[framebufferIndex++] = machineMemory[loAddr];
+            frameBuffer[framebufferIndex++] = machineMemory[hiAddr];
+            frameBuffer[framebufferIndex++] = machineMemory[loAddr + 1];
+            floatingBusValue = machineMemory[hiAddr + 1];
+            frameBuffer[framebufferIndex++] = floatingBusValue;
+        } else {
+            const displayFile:u32 = (mode & 0x01) ? 0x2000 : 0;
+            const screenAddr:u32 = screenBaseAddr | (displayFile + (addressWord & 0xffff));
+            const attributeAddr:u32 = screenBaseAddr | (displayFile + (addressWord >> 16));
             frameBuffer[framebufferIndex++] = machineMemory[screenAddr];
             frameBuffer[framebufferIndex++] = machineMemory[attributeAddr];
             frameBuffer[framebufferIndex++] = machineMemory[screenAddr + 1];
