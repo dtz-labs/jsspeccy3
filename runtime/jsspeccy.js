@@ -101,12 +101,24 @@ class Emulator extends EventEmitter {
                             '48': {'default': 'tapeloaders/tape_48.szx', 'usr0': 'tapeloaders/tape_48.szx'},
                             '128': {'default': 'tapeloaders/tape_128.szx', 'usr0': 'tapeloaders/tape_128_usr0.szx'},
                             '5': {'default': 'tapeloaders/tape_pentagon.szx', 'usr0': 'tapeloaders/tape_pentagon_usr0.szx'},
-                            // the TC2048 ROM differs from 48.rom in 7 bytes,
-                            // none of them in the loader, so tape_48 works
-                            '2048': {'default': 'tapeloaders/tape_48.szx', 'usr0': 'tapeloaders/tape_48.szx'},
+                            /* The TC2048's loader code is identical to the
+                            48K's, but the snapshot records the machine it was
+                            taken on and loadSnapshot feeds that straight to
+                            setMachineType - so reusing tape_48.szx here would
+                            switch the emulator out of TC2048 mode on every
+                            tape. Hence a snapshot of its own. */
+                            '2048': {'default': 'tapeloaders/tape_2048.szx', 'usr0': 'tapeloaders/tape_2048.szx'},
                         };
-                        this.openUrl(new URL(TAPE_LOADERS_BY_MACHINE[this.machineType][this.tapeAutoLoadMode], scriptUrl));
-                        if (!this.tapeTrapsEnabled) {
+                        /* A machine with no loader snapshot must not break file
+                        opening; fall back to playing the tape so the user can
+                        type LOAD "" themselves. */
+                        const loaders = TAPE_LOADERS_BY_MACHINE[this.machineType];
+                        if (loaders) {
+                            this.openUrl(new URL(loaders[this.tapeAutoLoadMode], scriptUrl));
+                            if (!this.tapeTrapsEnabled) {
+                                this.playTape();
+                            }
+                        } else {
                             this.playTape();
                         }
                     }
