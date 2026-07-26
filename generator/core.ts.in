@@ -15,8 +15,11 @@ export const MACHINE_MEMORY:usize = (&machineMemory);
 export const MEMORY_PAGE_READ_MAP:usize = (&memoryPageReadMap);
 export const MEMORY_PAGE_WRITE_MAP:usize = (&memoryPageWriteMap);
 
-#alloc pageIsContended[12]: u8
-pageIsContended = [0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0];
+// NB must have an entry for every page used by any machine, including ROM
+// pages - gencore.js emits unchecked load<u8>, so a short array silently
+// reads whatever was allocated next.
+#alloc pageIsContended[16]: u8
+pageIsContended = [0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0];
 
 #regpair AF A F
 export const REGISTERS:usize = (&AF);
