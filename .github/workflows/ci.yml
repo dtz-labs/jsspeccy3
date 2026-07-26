@@ -40,6 +40,9 @@ jobs:
       - name: Z80 instruction tests
         run: npm run test:z80
 
+      - name: Paging tests
+        run: npm run test:paging
+
       - name: Screen tests
         run: npm run test:screen
 

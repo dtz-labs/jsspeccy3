@@ -6,8 +6,9 @@
   "type": "module",
   "scripts": {
     "test": "npm run build && npm run test:unit",
-    "test:unit": "npm run test:z80 && npm run test:screen && npm run test:render && npm run test:snapshot && npm run test:tapeload",
+    "test:unit": "npm run test:z80 && npm run test:paging && npm run test:screen && npm run test:render && npm run test:snapshot && npm run test:tapeload",
     "test:z80": "node test/test.js test/tests.in test/tests.expected",
+    "test:paging": "node test/paging.js",
     "test:screen": "node test/screen.js",
     "test:render": "node test/render.js",
     "test:snapshot": "node test/snapshot.js",
@@ -44,7 +45,10 @@
         "runtime/icons/*.svg",
         "build/*.js"
       ],
-      "extensions": ["js", "svg"]
+      "extensions": [
+        "js",
+        "svg"
+      ]
     },
     "build:static": {
       "patterns": [
