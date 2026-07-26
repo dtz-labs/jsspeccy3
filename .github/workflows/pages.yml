@@ -41,10 +41,40 @@ jobs:
       - name: Release build
         run: npm run build:release
 
+      # The landing page shows the fork doing something the stock emulator
+      # cannot: running a demo written for the Timex video modes. The plain
+      # emulator that ships with the build stays available under /emulator/.
+      - name: Assemble the site
+        run: |
+          set -eu
+          mkdir -p _site/emulator
+          cp -R pages/. _site/
+          cp -R dist/jsspeccy _site/jsspeccy
+          # the stock page loads the emulator from a sibling directory, which
+          # is one level further up once it lives in /emulator/
+          sed 's|"jsspeccy/|"../jsspeccy/|g' dist/index.html > _site/emulator/index.html
+          cp dist/favicon.ico _site/
+          cp dist/README.md dist/CHANGELOG.md dist/COPYING _site/
+
+      - name: Check the pieces the page needs are all there
+        run: |
+          set -eu
+          test -f _site/index.html
+          test -f _site/emulator/index.html
+          test -f _site/jsspeccy/jsspeccy.js
+          test -f _site/jsspeccy/jsspeccy-core.wasm
+          test -f _site/jsspeccy/roms/tc2048.rom
+          test -f _site/jsspeccy/roms/2068-home.rom
+          test -f _site/jsspeccy/tapeloaders/tape_2048.szx
+          test -f _site/jsspeccy/tapeloaders/tape_2068.szx
+          test -f _site/tap/timmy.tap
+          test -f _site/tap/timmy2068.tap
+          grep -q '\.\./jsspeccy/jsspeccy\.js' _site/emulator/index.html
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: _site
 
       - name: Deploy to GitHub Pages
         id: deployment
