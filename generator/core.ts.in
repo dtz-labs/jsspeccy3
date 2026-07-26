@@ -1060,7 +1060,12 @@ export function runUntil(maxT:u32):i16 {
 
         if (
             (pc == 0x056b || pc == 0x0111)
-            && (memoryPageReadMap[0] == 18 || memoryPageReadMap[0] == 20 || memoryPageReadMap[0] == 28)
+            // 18 = 128K ROM 1, 20 = 48K ROM, 28 = TC2048 ROM, 32 = 2068 EXROM.
+            // The 2068's LD-BYTES is the 48K routine relocated by -0x045a into
+            // the EXROM, so it lands on 0x0111 - already one of the two PCs
+            // tested above.
+            && (memoryPageReadMap[0] == 18 || memoryPageReadMap[0] == 20
+                || memoryPageReadMap[0] == 28 || memoryPageReadMap[0] == 32)
             && tapeTrapsEnabled && willTrap
         ) {
             // tape loading trap

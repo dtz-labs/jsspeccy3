@@ -74,7 +74,6 @@ function pressKeys(names, holdFrames = 4, gapFrames = 6) {
 core.setMachineType(machineType);
 for (const [file, page] of ROMS_BY_MACHINE[machineType]) loadRom(file, page);
 core.setMachineType(machineType);   // reset again now the ROM is in place
-core.setTapeTraps(false);           // we want to reach the real loader
 core.setAudioSamplesPerFrame(0);
 
 runFrames(200);                     // let the ROM finish its boot
@@ -84,25 +83,34 @@ pressKeys(['SYM', 'P']);            // "
 pressKeys(['SYM', 'P']);            // "
 pressKeys(['ENTER']);
 
-/* Run until the CPU is sitting in the tape loading routine. With no tape
-   attached it will spin there indefinitely, which is exactly the state we
-   want to capture. */
+/* Park the machine on the exact address the tape trap fires at, not merely
+   somewhere inside the loading routine.
+
+   This matters: with tape traps enabled the emulator never plays the tape, it
+   just waits for the trap. A snapshot stopped anywhere else sits in LD-BYTES
+   waiting for edges that will never arrive, and the load hangs after the
+   header. Every stock loader snapshot is parked on 0x056b for this reason.
+
+   The 2068's LD-BYTES is the 48K routine relocated by -0x045a into the EXROM,
+   so its trap address is 0x0111. */
+const TRAP_PC = (machineType === 2068) ? 0x0111 : 0x056b;
+
+core.setTapeTraps(true);   // runFrame returns 2 the moment we reach the trap
 let reached = false;
 for (let i = 0; i < 400 && !reached; i++) {
-    core.runFrame();
-    const pc = core.getPC();
-    if (machineType === 2068) {
-        // LD-BYTES lives in the EXROM, which the ROM pages into the bottom 8K
-        reached = (pc >= 0x0100 && pc <= 0x0200);
-    } else {
-        reached = (pc >= 0x0550 && pc <= 0x05f0);
-    }
+    reached = (core.runFrame() === 2);
 }
 if (!reached) {
-    console.log(`FAILED: never reached the loader; PC = 0x${core.getPC().toString(16)}`);
+    console.log(`FAILED: never hit the tape trap; PC = 0x${core.getPC().toString(16)}`);
     exit(1);
 }
-console.log(`reached loader at PC = 0x${core.getPC().toString(16)}`);
+if (core.getPC() !== TRAP_PC) {
+    console.log(
+        `FAILED: trapped at 0x${core.getPC().toString(16)}, expected 0x${TRAP_PC.toString(16)}`
+    );
+    exit(1);
+}
+console.log(`parked on the tape trap at PC = 0x${core.getPC().toString(16)}`);
 
 /* --- serialise to SZX ------------------------------------------------- */
 const blocks = [];
@@ -137,9 +145,17 @@ spcr.writeUInt8(frameBuffer[0] & 0x07, 0);
 block('SPCR', spcr);
 console.log(`border = ${frameBuffer[0] & 0x07}`);
 
+/* SCLD block, in the order Fuse writes it: horizontal select register
+   (port 0xF4) then display enhancement control (port 0xFF). The 2068 loader
+   is parked inside the EXROM, so without the 0xF4 value the snapshot would
+   restore with the EXROM unmapped and PC pointing into the HOME ROM. */
 const scld = Buffer.alloc(2);
-scld.writeUInt8(core.readPort(0x00ff), 0);
+// only the 2068 has the MMU; on other machines port 0xF4 has A0 low and
+// reads back the keyboard, which would be garbage here
+scld.writeUInt8(machineType === 2068 ? core.readPort(0x00f4) : 0, 0);
+scld.writeUInt8(core.readPort(0x00ff), 1);
 block('SCLD', scld);
+console.log(`0xF4 = 0x${scld[0].toString(16)}, 0xFF = 0x${scld[1].toString(16)}`);
 
 /* RAM banks, zlib-compressed as the other loader snapshots are. 16K bank n
    lives at 8K pages 2n, i.e. byte offset n * 0x4000. */

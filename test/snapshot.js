@@ -70,7 +70,7 @@ function makeSZX({ machineId, sclrFirst }) {
         blocks.push(b);
     };
     const spcr = new Uint8Array([0x02, 0x11, 0x00, 0x00, 0, 0, 0, 0]);
-    const scld = new Uint8Array([0x06, 0x00]);
+    const scld = new Uint8Array([0x03, 0x06]);   // 0xF4 = 0x03, 0xFF = 0x06
     if (sclrFirst) {
         pushBlock('SCLD', scld);
         pushBlock('SPCR', spcr);
@@ -97,6 +97,7 @@ function testSZXTC2048() {
     check(name, 'model', snapshot.model, 2048);
     check(name, 'border', snapshot.ulaState.borderColour, 0x02);
     check(name, 'screen mode', snapshot.ulaState.timexScreenMode, 0x06);
+    check(name, 'bank enable', snapshot.ulaState.timexBankEnable, 0x03);
 }
 
 function testSZXBlockOrderDoesNotClobber() {

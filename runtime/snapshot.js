@@ -309,10 +309,12 @@ export function parseSZXFile(data) {
                 // ch1ffd, chEff7, chFe
                 break;
             case 'SCLD':
-                /* Timex SCLD registers; byte 0 is the last value written to
-                port 0xFF, which selects the screen mode */
-                snapshot.ulaState.timexScreenMode = file.getUint8(offset + 0);
-                // currently ignored: chEff7
+                /* Timex SCLD registers, in the order Fuse writes them:
+                byte 0 is the horizontal select register (port 0xF4, the 8K
+                bank enable) and byte 1 is the display enhancement control
+                (port 0xFF, the screen mode). */
+                snapshot.ulaState.timexBankEnable = file.getUint8(offset + 0);
+                snapshot.ulaState.timexScreenMode = file.getUint8(offset + 1);
                 break;
             case 'RAMP':
                 const isCompressed = file.getUint16(offset + 0, true) & 0x0001;
