@@ -261,6 +261,9 @@ export function parseSZXFile(data) {
         case 8:  // ZXSTMID_TC2048
             snapshot.model = 2048;
             break;
+        case 9:  // ZXSTMID_TC2068
+            snapshot.model = 2068;
+            break;
         default:
             throw "Unsupported machine type: " + machineId;
     }
