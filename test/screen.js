@@ -157,8 +157,106 @@ function testTC2048HiRes() {
     check(name, 'byte 3 (DF1 n+1)', frame[p + 3], 0x44);
 }
 
+function readModeLog() {
+    const entries = [];
+    for (let p = MODE_LOG_OFFSET; p < FRAME_BUFFER_SIZE; p += 4) {
+        const index = frame[p] | (frame[p + 1] << 8);
+        if (index === 0xffff) break;
+        entries.push({ index, mode: frame[p + 2] });
+    }
+    return entries;
+}
+
+function testTC2048ModeLogSingleEntry() {
+    const name = 'TC2048 mode log (no change)';
+    selectMachine(2048);
+    core.writePort(0x00ff, 0x02);
+    core.runFrame();
+    const log = readModeLog();
+    check(name, 'entry count', log.length, 1);
+    check(name, 'index', log[0].index, 0);
+    check(name, 'mode', log[0].mode, 0x02);
+}
+
+function testTC2048MidFrameModeChange() {
+    const name = 'TC2048 mid-frame mode change';
+    selectMachine(2048);
+
+    // DF0 and DF1 filled with distinguishable patterns across all 192 lines
+    for (let y = 0; y < 192; y++) {
+        const rowAddr = 0x4000 | ((y & 0xc0) << 5) | ((y & 0x07) << 8) | ((y & 0x38) << 2);
+        core.poke(rowAddr, 0x11);
+        core.poke(rowAddr + 0x2000, 0x22);
+    }
+    for (let i = 0; i < 0x300; i++) {
+        core.poke(0x5800 + i, 0x33);   // DF0 attributes
+        core.poke(0x7800 + i, 0x44);   // DF1 attributes
+    }
+
+    core.writePort(0x00ff, 0x00);      // start in mode 0
+
+    /* Program at 0x8000 (page 2, uncontended, so timing is deterministic):
+         21 00 03   LD HL,0x0300
+         2B         DEC HL           6 T
+         7C         LD A,H           4 T
+         B5         OR L             4 T
+         20 FB      JR NZ,-5        12 T taken
+         3E 01      LD A,1
+         01 FF 00   LD BC,0x00FF
+         ED 79      OUT (C),A
+         18 FE      JR -2            (spin)
+       768 iterations x 26 T ~= 19968 T, so the OUT lands around screen line
+       25, comfortably inside the 14335..57343 main screen window. The
+       assertion below locates the change from the log rather than assuming
+       exactly where it fell. */
+    const program = [
+        0x21, 0x00, 0x03,
+        0x2b, 0x7c, 0xb5, 0x20, 0xfb,
+        0x3e, 0x01,
+        0x01, 0xff, 0x00,
+        0xed, 0x79,
+        0x18, 0xfe,
+    ];
+    program.forEach((byte, i) => core.poke(0x8000 + i, byte));
+    core.setPC(0x8000);
+    core.runFrame();
+
+    const log = readModeLog();
+    check(name, 'entry count', log.length, 2);
+    if (log.length !== 2) return;
+    check(name, 'first index', log[0].index, 0);
+    check(name, 'first mode', log[0].mode, 0x00);
+    check(name, 'second mode', log[1].mode, 0x01);
+
+    const changeAt = log[1].index;
+    const firstScreenByte = screenLine(0);
+    const lastScreenByte = screenLine(191);
+    if (changeAt <= firstScreenByte || changeAt >= lastScreenByte) {
+        fail(name, `change at 0x${changeAt.toString(16)} is outside the main screen`);
+        return;
+    }
+
+    // Before the change the ULA was reading DF0, after it DF1.
+    check(name, 'bitmap before change', frame[firstScreenByte], 0x11);
+    check(name, 'attr before change', frame[firstScreenByte + 1], 0x33);
+    check(name, 'bitmap after change', frame[lastScreenByte], 0x22);
+    check(name, 'attr after change', frame[lastScreenByte + 1], 0x44);
+}
+
+function test48KModeLogIsInert() {
+    const name = '48K mode log';
+    selectMachine(48);
+    core.runFrame();
+    const log = readModeLog();
+    check(name, 'entry count', log.length, 1);
+    check(name, 'mode', log[0].mode, 0x00);
+}
+
 test48KBaseline();
 testTC2048StandardMode();
+testTC2048ModeLogSingleEntry();
+testTC2048MidFrameModeChange();
+test48KModeLogIsInert();
 testTC2048SecondDisplayFile();
 testTC2048HiColour();
 testTC2048HiRes();

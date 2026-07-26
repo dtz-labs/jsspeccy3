@@ -1,5 +1,10 @@
-#alloc frameBuffer[0x6600]: u8
+/* 0x0000..0x65ff is the pixel/attr/border fetch log; 0x6600..0x69ff is the
+Timex screen-mode change log, holding up to MODE_LOG_MAX_ENTRIES records of
+[indexLo, indexHi, mode, 0] terminated by index 0xffff. */
+#alloc frameBuffer[0x6a00]: u8
 export const FRAME_BUFFER:usize = (&frameBuffer);
+#const MODE_LOG_OFFSET 0x6600
+#const MODE_LOG_MAX_ENTRIES 255
 
 // allocate memory for 8 RAM, 8 ROM pages
 // 0..7 - 128K RAM pages;
@@ -226,6 +231,8 @@ let timexScreenMode:u8 = 0;
 // highest offset within the screen page that a write must flush the
 // framebuffer for. Timex has a second display file at 0x6000..0x7aff.
 let screenDirtyLimit:u16 = 0x1b00;
+let modeLogPointer:u32 = 0x6600;
+let modeLogCount:u32 = 0;
 let selectedAYRegister:u8 = 0;
 let floatingBusValue:u8 = 0xff;
 let currentTapeTime:u32 = 0;  // time at which tape pulse pointer was last updated
@@ -563,6 +570,7 @@ export function writePort(addr:u16, val:u8):void {
         it can never collide with the ULA at 0xfe. Tested first so that the
         guard short-circuits for every non-Timex machine. */
         updateFramebuffer();  // apply all screen updates before the mode changes
+        writeModeLogEntry(framebufferIndex, val);
         timexScreenMode = val;
     } else if (!(addr & 0x0001)) {
         /* border colour / speaker */
@@ -642,6 +650,35 @@ function updateFramebuffer():void {
         }
         screenEventPointer += 2;
     }
+}
+
+function writeModeLogEntry(index:u32, mode:u8):void {
+    /* Record that `mode` takes effect at byte `index` of the pixel log.
+    Entries past MODE_LOG_MAX_ENTRIES are dropped; a per-scanline effect
+    needs at most 192, so legitimate software cannot hit the cap. */
+    if (modeLogCount >= MODE_LOG_MAX_ENTRIES) return;
+    frameBuffer[modeLogPointer] = u8(index & 0xff);
+    frameBuffer[modeLogPointer + 1] = u8(index >> 8);
+    frameBuffer[modeLogPointer + 2] = mode;
+    frameBuffer[modeLogPointer + 3] = 0;
+    modeLogPointer += 4;
+    modeLogCount++;
+}
+
+function resetModeLog():void {
+    modeLogPointer = MODE_LOG_OFFSET;
+    modeLogCount = 0;
+    /* Seed with the mode in force at the first pixel, so the renderer always
+    has a mode in hand without special-casing the start of the frame. */
+    writeModeLogEntry(0, timexScreenMode);
+}
+
+function terminateModeLog():void {
+    /* Does not advance the pointer, so a later entry overwrites the marker. */
+    frameBuffer[modeLogPointer] = 0xff;
+    frameBuffer[modeLogPointer + 1] = 0xff;
+    frameBuffer[modeLogPointer + 2] = 0;
+    frameBuffer[modeLogPointer + 3] = 0;
 }
 
 function updateFramebufferTimex(screenBaseAddr:u32):void {
@@ -841,6 +878,7 @@ function recalculateAYCyclesPerSample():void {
 export function runFrame():i16 {
     screenEventPointer = 0;
     framebufferIndex = 0;
+    resetModeLog();
 
     if (requestedSamplesPerFrame != samplesPerFrame) {
         samplesPerFrame = requestedSamplesPerFrame;
@@ -873,6 +911,7 @@ export function resumeFrame():i16 {
     }
 
     updateFramebuffer();
+    terminateModeLog();
     updateAudioBuffer(t);
 
     if (tapePulseWriteIndex > tapePulseReadIndex) {

@@ -19,7 +19,9 @@ const loadCore = (baseUrl) => {
         core = results.instance.exports;
         memory = core.memory;
         memoryData = new Uint8Array(memory.buffer);
-        workerFrameData = memoryData.subarray(core.FRAME_BUFFER, FRAME_BUFFER_SIZE);
+        // NB subarray takes (begin, end) - passing the size as the end offset
+        // only happened to work because FRAME_BUFFER is 0.
+        workerFrameData = memoryData.subarray(core.FRAME_BUFFER, core.FRAME_BUFFER + FRAME_BUFFER_SIZE);
         registerPairs = new Uint16Array(core.memory.buffer, core.REGISTERS, 12);
         tapePulses = new Uint16Array(core.memory.buffer, core.TAPE_PULSES, core.TAPE_PULSES_LENGTH);
 
