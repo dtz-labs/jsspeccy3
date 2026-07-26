@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JSSpeccy3 FORK by dtz-labs</title>
+<style>
+  :root {
+    --ink: #d8d8d8;
+    --dim: #909090;
+    --cyan: #55ffff;
+    --yellow: #ffff55;
+    --green: #55ff55;
+    --magenta: #ff55ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: #101010;
+    color: var(--ink);
+    font-family: "Courier New", monospace;
+    margin: 0;
+    padding: 1.5rem 1rem 3rem;
+    text-align: center;
+    line-height: 1.5;
+  }
+  h1 {
+    color: var(--yellow);
+    font-size: clamp(1.2rem, 4.5vw, 1.9rem);
+    margin: 0 0 0.15rem;
+    letter-spacing: 0.04em;
+  }
+  h2 {
+    color: var(--magenta);
+    font-size: clamp(0.85rem, 2.6vw, 1.05rem);
+    font-weight: normal;
+    margin: 0 0 1.2rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  h3 {
+    color: var(--cyan);
+    font-size: 1rem;
+    margin: 2rem 0 0.5rem;
+    letter-spacing: 0.08em;
+  }
+  p { margin: 0.5rem auto; max-width: 44rem; }
+  a { color: var(--cyan); }
+  .lead { color: var(--ink); }
+  .keys { color: var(--green); }
+  .hint { color: var(--yellow); }
+  .switch {
+    display: flex;
+    gap: 0.6rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin: 1.1rem auto 0;
+  }
+  .switch a {
+    display: inline-block;
+    padding: 0.45rem 1rem;
+    border: 2px solid var(--cyan);
+    color: var(--cyan);
+    text-decoration: none;
+    letter-spacing: 0.05em;
+  }
+  .switch a[aria-current="true"] {
+    background: var(--cyan);
+    color: #101010;
+    font-weight: bold;
+  }
+  .switch a:hover { background: var(--cyan); color: #101010; }
+  #jsspeccy {
+    margin: 1.25rem auto;
+    display: flex;
+    justify-content: center;
+  }
+  .sponsor {
+    display: inline-block;
+    margin-top: 0.5rem;
+    padding: 0.65rem 1.2rem;
+    background: #ffdd00;
+    color: #101010;
+    font-weight: bold;
+    text-decoration: none;
+    border-radius: 6px;
+    border: 2px solid #101010;
+    box-shadow: 0 0 0 2px #ffdd00;
+  }
+  .sponsor:hover { background: var(--yellow); }
+  .credits {
+    max-width: 44rem;
+    margin: 0 auto;
+    text-align: left;
+    border: 1px solid #303030;
+    padding: 0.9rem 1.1rem;
+  }
+  .credits dt { color: var(--green); float: left; width: 7rem; clear: left; }
+  .credits dd { margin: 0 0 0.3rem 7rem; }
+  .footer { margin-top: 2rem; font-size: 0.85rem; color: var(--dim); }
+</style>
+</head>
+<body>
+
+<h1>Witajcie, Spectrumowe Świry!</h1>
+<h2>JSSpeccy3 FORK by dtz-labs</h2>
+
+<p class="lead">To jest nasz fork <a href="https://github.com/gasman/jsspeccy3">JSSpeccy&nbsp;3</a>
+z obsługą <strong>Timeksów</strong> — TC2048 i TC2068: tryby graficzne SCLD,
+stronicowanie po 8&nbsp;kB, EXROM/DOCK i dźwięk AY. Poniżej chodzi na nim
+<strong>Timmy</strong>, demo grupy speccy.pl napisane na 30-lecie Timexa 2048.</p>
+
+<div class="switch">
+  <a id="pick-2048" href="?m=2048">Timex TC2048</a>
+  <a id="pick-2068" href="?m=2068">Timex TC2068</a>
+</div>
+
+<p class="hint">Naciśnij ▶ na emulatorze, żeby wystartować — przeglądarki
+włączają dźwięk dopiero po kliknięciu.</p>
+
+<div id="jsspeccy"></div>
+
+<p><a class="sponsor" href="https://buymeacoffee.com/mpasternak">☕ Postaw kawę
+dtz-labs — wspieraj nowe rzeczy na ZX Spectrum</a></p>
+
+<p><a href="https://www.youtube.com/watch?v=42PcK-DxLts">🎵 A tu piosenka
+gasmana, autora JSSpeccy — „Future Demo”</a></p>
+
+<h3>Timmy — speccy.pl</h3>
+<div class="credits">
+  <dl>
+    <dt>Kod</dt><dd>Tygrys</dd>
+    <dt>Grafika</dt><dd>Atom, Piesiu</dd>
+    <dt>Muzyka</dt><dd>Ziutek</dd>
+    <dt>Impreza</dt><dd>RiverWash 6, 19–21.09.2014 — 1. miejsce w combined demo</dd>
+    <dt>Maszyny</dt><dd>Timex 2048 + AY, Timex 2068</dd>
+  </dl>
+  <p style="margin:0.6rem 0 0">Demo jest tu udostępnione w postaci, w jakiej
+  wydała je grupa. Oryginał: <a href="https://www.pouet.net/prod.php?which=64102">pouet</a>
+  · <a href="http://www.speccy.pl/tygrys/timmy_speccypl_2014.zip">speccy.pl</a>
+  · <a href="https://demozoo.org/productions/122581/">Demozoo</a>. Prawa po
+  stronie autorów — napiszcie, jeśli wolicie, żeby stąd zniknęło.</p>
+</div>
+
+<p class="footer">
+Emulacja: <a href="https://github.com/gasman/jsspeccy3">JSSpeccy&nbsp;3</a>
+autorstwa gasmana (GPL-3), w <a href="https://github.com/dtz-labs/jsspeccy3">forku dtz-labs</a>
+z obsługą Timeksów ·
+<a href="emulator/">czysty emulator bez dema</a>
+</p>
+
+<script src="jsspeccy/jsspeccy.js"></script>
+<script>
+(function () {
+    var MACHINES = {
+        '2048': { machine: 2048, tap: 'tap/timmy.tap' },
+        '2068': { machine: 2068, tap: 'tap/timmy2068.tap' }
+    };
+    var wanted = new URLSearchParams(location.search).get('m');
+    var key = MACHINES[wanted] ? wanted : '2048';
+    var chosen = MACHINES[key];
+
+    document.getElementById('pick-' + key).setAttribute('aria-current', 'true');
+
+    JSSpeccy(document.getElementById('jsspeccy'), {
+        machine: chosen.machine,
+        openUrl: chosen.tap,
+        autoLoadTapes: true,
+        sandbox: false,
+        // No autoStart: JSSpeccy creates its AudioContext inside start() and
+        // never resumes it, so starting from the visible play button keeps
+        // that inside a user gesture - the only way browsers allow audio.
+        zoom: 2
+    });
+})();
+</script>
+</body>
+</html>
