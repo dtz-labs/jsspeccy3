@@ -2,7 +2,7 @@ import { argv, exit } from 'process';
 import * as fs from 'fs';
 import * as readline from 'readline';
 
-import * as core from '../dist/jsspeccy/jsspeccy-core.wasm';
+import core from './core.js';
 
 let failureCount = 0;
 
