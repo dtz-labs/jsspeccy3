@@ -447,7 +447,7 @@ function writeMem(addr:u16, val:u8):void {
     if (loggingEnabled) log(t, 3, addr, 0);
     if (pageIsContended[page]) t += contentionTable[t % frameCycleCount];
     const pageOffset:u16 = addr & 0x3fff;
-    if (page == screenPageIndex && pageOffset < 0x1b00) {
+    if (page == screenPageIndex && pageOffset < screenDirtyLimit) {
         updateFramebuffer();
     }
     machineMemory[pageStartPtr | pageOffset] = val;
@@ -501,7 +501,11 @@ export function readPort(addr:u16):u8 {
         result = u8(addr >> 8);
     } else {
 
-        if (!(addr & 0x0001)) {
+        if (timexVideoEnabled && (addr & 0x00ff) == 0x00ff) {
+            /* Timex SCLD screen mode register reads back the last value
+            written, replacing the floating bus on Timex machines. */
+            result = timexScreenMode;
+        } else if (!(addr & 0x0001)) {
             /* poll keyboard */
             result = pollKeyboard(u8(addr >> 8));
             updateTapePulses(t);
@@ -554,7 +558,13 @@ export function writePort(addr:u16, val:u8):void {
     t++;
 
     if (loggingEnabled) log(t, 5, addr, val);
-    if (!(addr & 0x0001)) {
+    if (timexVideoEnabled && (addr & 0x00ff) == 0x00ff) {
+        /* Timex SCLD screen mode register. Decoded on the full low byte, so
+        it can never collide with the ULA at 0xfe. Tested first so that the
+        guard short-circuits for every non-Timex machine. */
+        updateFramebuffer();  // apply all screen updates before the mode changes
+        timexScreenMode = val;
+    } else if (!(addr & 0x0001)) {
         /* border colour / speaker */
         updateFramebuffer();  // apply all screen upates up to this point
         updateAudioBuffer(t);

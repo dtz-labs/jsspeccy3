@@ -76,9 +76,41 @@ function testTC2048TapeTrap() {
     core.setTapeTraps(false);
 }
 
+function testTC2048SCLDPortRoundTrip() {
+    const name = 'TC2048 SCLD port';
+    selectMachine(2048);
+    core.writePort(0x00ff, 0x06);
+    check(name, 'read back', core.readPort(0x00ff), 0x06);
+
+    // port 0xFE must still drive the border, not the SCLD
+    core.writePort(0x00fe, 0x02);
+    check(name, 'unchanged by 0xFE', core.readPort(0x00ff), 0x06);
+
+    // any port whose low byte is 0xff hits the SCLD
+    core.writePort(0x7fff, 0x01);
+    check(name, 'decoded on low byte', core.readPort(0xbfff), 0x01);
+
+    core.reset();
+    check(name, 'cleared by reset', core.readPort(0x00ff), 0x00);
+}
+
+function test48KPortFFUnaffected() {
+    const name = '48K port 0xFF';
+    selectMachine(48);
+    // On a 48K the SCLD does not exist; 0xFF is the floating bus and a write
+    // to it must not be swallowed by the Timex branch.
+    core.writePort(0x00ff, 0x06);
+    const result = core.readPort(0x00ff);
+    if (result === 0x06) {
+        fail(name, 'port 0xFF behaved as an SCLD register on a 48K');
+    }
+}
+
 test48KBaseline();
 testTC2048StandardMode();
 testTC2048TapeTrap();
+testTC2048SCLDPortRoundTrip();
+test48KPortFFUnaffected();
 
 if (failureCount) {
     console.log(`${failureCount} screen test failure(s)`);
