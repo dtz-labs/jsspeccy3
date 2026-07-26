@@ -127,6 +127,144 @@ testPagingLock();
 test48KPagingIgnored();
 testScreenBankFollowsPaging();
 
+/* --- Timex TC2068 --------------------------------------------------- */
+
+const HOME_READ = [30, 31, 10, 11, 4, 5, 0, 1];
+const EXROM_PAGE = 32;
+const EMPTY_DOCK_PAGE = 33;
+
+function test2068ResetMap() {
+    const name = 'TC2068 reset map';
+    core.setMachineType(2068);
+    checkMap(name, 'read', readMap, HOME_READ);
+    checkMap(name, 'write', writeMap, [22, 23, 10, 11, 4, 5, 0, 1]);
+    check(name, 'bank enable clear', core.readPort(0x00f4), 0);
+}
+
+function test2068BankEnablePerChunk() {
+    /* Port 0xF4 is one bit per 8K chunk. With bit 7 of the SCLD register set,
+       enabled chunks come from EXROM -- which is only 8K, so it appears
+       mirrored in every chunk switched to it. */
+    const name = 'TC2068 port 0xF4';
+    core.setMachineType(2068);
+    core.writePort(0x00ff, 0x80);          // select EXROM
+    for (let chunk = 0; chunk < 8; chunk++) {
+        core.writePort(0x00f4, 1 << chunk);
+        const expected = HOME_READ.slice();
+        expected[chunk] = EXROM_PAGE;
+        checkMap(name, `chunk ${chunk}`, readMap, expected);
+    }
+    // several at once, all mirroring the same 8K EXROM
+    core.writePort(0x00f4, 0b00000011);
+    checkMap(name, 'chunks 0+1', readMap.slice(0, 2), [EXROM_PAGE, EXROM_PAGE]);
+    // and back off again
+    core.writePort(0x00f4, 0x00);
+    checkMap(name, 'all off', readMap, HOME_READ);
+}
+
+function test2068DockVsExrom() {
+    const name = 'TC2068 DOCK vs EXROM';
+    core.setMachineType(2068);
+    core.writePort(0x00f4, 0x01);          // enable chunk 0
+    core.writePort(0x00ff, 0x00);          // bit 7 clear -> DOCK
+    check(name, 'dock selected', readMap[0], EMPTY_DOCK_PAGE);
+    core.writePort(0x00ff, 0x80);          // bit 7 set -> EXROM
+    check(name, 'exrom selected', readMap[0], EXROM_PAGE);
+    core.writePort(0x00ff, 0x00);
+    check(name, 'back to dock', readMap[0], EMPTY_DOCK_PAGE);
+}
+
+function test2068EmptyDockReadsFF() {
+    const name = 'TC2068 empty dock';
+    core.setMachineType(2068);
+    core.writePort(0x00ff, 0x00);          // DOCK, no cartridge
+    core.writePort(0x00f4, 0x01);          // chunk 0 -> dock
+    check(name, 'reads 0xff', core.peek(0x0000), 0xff);
+    check(name, 'reads 0xff at top of chunk', core.peek(0x1fff), 0xff);
+}
+
+function test2068BankSwitchIsReadOnly() {
+    const name = 'TC2068 alt bank read-only';
+    core.setMachineType(2068);
+    core.writePort(0x00ff, 0x80);
+    core.writePort(0x00f4, 0x01);
+    check(name, 'writes go to scratch', writeMap[0], 22);
+}
+
+function test2068ScreenModeBitsUnaffectedByBank() {
+    /* Bit 7 must not disturb the video mode bits, and vice versa. */
+    const name = 'TC2068 SCLD bits';
+    core.setMachineType(2068);
+    core.writePort(0x00ff, 0x86);          // hi-res + EXROM
+    check(name, 'readback', core.readPort(0x00ff), 0x86);
+    core.writePort(0x00f4, 0x01);
+    check(name, 'exrom still selected', readMap[0], EXROM_PAGE);
+}
+
+function test2068AYPorts() {
+    /* The AY sits at 0xF5/0xF6, not the 128K's 0xFFFD/0xBFFD. 0xF6 has A0
+       low, so a naive decode would also hit the ULA and move the border. */
+    const name = 'TC2068 AY';
+    core.setMachineType(2068);
+    core.writePort(0x00f5, 0x08);          // select register 8 (volume A)
+    core.writePort(0x00f6, 0x0f);
+    check(name, 'register 8 readback', core.readPort(0x00f6), 0x0f);
+
+    core.writePort(0x00f5, 0x00);          // tone A fine
+    core.writePort(0x00f6, 0x55);
+    check(name, 'register 0 readback', core.readPort(0x00f6), 0x55);
+    core.writePort(0x00f5, 0x08);
+    check(name, 'register 8 still set', core.readPort(0x00f6), 0x0f);
+}
+
+function test2068AYDoesNotTouchBorder() {
+    const name = 'TC2068 AY vs border';
+    const FRAME_BUFFER_SIZE = 0x6a00;
+    const frame = new Uint8Array(core.memory.buffer, core.FRAME_BUFFER, FRAME_BUFFER_SIZE);
+    core.setMachineType(2068);
+    core.setTapeTraps(false);
+    core.writePort(0x00fe, 0x02);          // border red
+    core.runFrame();
+    check(name, 'border before', frame[0], 0x02);
+    core.writePort(0x00f5, 0x07);
+    core.writePort(0x00f6, 0x3f);          // would be border 7 if it hit the ULA
+    core.runFrame();
+    check(name, 'border after AY write', frame[0], 0x02);
+}
+
+function test48KAndTC2048IgnoreTimexPorts() {
+    /* Ports 0xF4 and 0xF6 both have A0 low, so on a machine without the Timex
+       MMU they belong to the ULA and must still set the border. Asserting only
+       that the page map is unchanged is not enough: that also holds if the
+       Timex branch wrongly swallows the write. */
+    const name = 'non-2068 ignores 0xF4';
+    const FRAME_BUFFER_SIZE = 0x6a00;
+    const frame = new Uint8Array(core.memory.buffer, core.FRAME_BUFFER, FRAME_BUFFER_SIZE);
+    for (const machine of [48, 128, 2048]) {
+        core.setMachineType(machine);
+        core.setTapeTraps(false);
+        const before = Array.from(readMap);
+        core.writePort(0x00f4, 0x03);
+        checkMap(name, `machine ${machine} map`, readMap, before);
+        core.runFrame();
+        check(name, `machine ${machine} border via 0xF4`, frame[0], 0x03);
+
+        core.writePort(0x00f6, 0x05);
+        core.runFrame();
+        check(name, `machine ${machine} border via 0xF6`, frame[0], 0x05);
+    }
+}
+
+test2068ResetMap();
+test2068BankEnablePerChunk();
+test2068DockVsExrom();
+test2068EmptyDockReadsFF();
+test2068BankSwitchIsReadOnly();
+test2068ScreenModeBitsUnaffectedByBank();
+test2068AYPorts();
+test2068AYDoesNotTouchBorder();
+test48KAndTC2048IgnoreTimexPorts();
+
 if (failureCount) {
     console.log(`${failureCount} paging test failure(s)`);
     exit(1);

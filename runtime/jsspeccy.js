@@ -203,6 +203,8 @@ class Emulator extends EventEmitter {
         await this.loadRom('roms/48.rom', 10);
         await this.loadRom('roms/pentagon-0.rom', 12);
         await this.loadRom('roms/tc2048.rom', 14);
+        await this.loadRom('roms/2068-home.rom', 15);
+        await this.loadRom('roms/2068-exrom.rom', 16);
         await this.loadRom('roms/trdos.rom', 13);
     }
 
@@ -245,9 +247,9 @@ class Emulator extends EventEmitter {
     };
 
     setMachine(type) {
-        if (type != 128 && type != 5 && type != 2048) type = 48;
+        if (type != 128 && type != 5 && type != 2048 && type != 2068) type = 48;
         // Timex machines render 512px-wide hi-res, so they need a wider canvas
-        this.displayHandler.setVideoMode(type == 2048);
+        this.displayHandler.setVideoMode(type == 2048 || type == 2068);
         this.worker.postMessage({
             message: 'setMachineType',
             type,
@@ -508,6 +510,10 @@ window.JSSpeccy = (container, opts) => {
             emu.setMachine(2048);
             emu.focus();
         });
+        const machineTC2068Item = machineMenu.addItem('Timex TC2068', () => {
+            emu.setMachine(2068);
+            emu.focus();
+        });
         const displayMenu = ui.menuBar.addMenu('Display');
 
         const zoomItemsBySize = {
@@ -544,6 +550,7 @@ window.JSSpeccy = (container, opts) => {
             machine128Item.unsetBullet();
             machinePentagonItem.unsetBullet();
             machineTC2048Item.unsetBullet();
+            machineTC2068Item.unsetBullet();
             if (type == 48) {
                 machine48Item.setBullet();
             } else if (type == 128) {
@@ -552,6 +559,8 @@ window.JSSpeccy = (container, opts) => {
                 machinePentagonItem.setBullet();
             } else if (type == 2048) {
                 machineTC2048Item.setBullet();
+            } else if (type == 2068) {
+                machineTC2068Item.setBullet();
             }
         });
 
