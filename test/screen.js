@@ -1,5 +1,5 @@
 import { exit } from 'process';
-import * as core from '../dist/jsspeccy/jsspeccy-core.wasm';
+import core from './core.js';
 
 const FRAME_BUFFER_SIZE = 0x6a00;
 const MODE_LOG_OFFSET = 0x6600;

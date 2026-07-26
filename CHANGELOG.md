@@ -13,6 +13,13 @@ Unreleased
   pages, which read past the end of the array
 * Fix a frame buffer view in the worker that passed a size where an end offset
   was expected
+* Add GitHub Actions CI, running the test suites on Node 20, 22 and 24 and
+  verifying a release build
+* Upgrade webpack and webpack-cli so the build works on current Node versions;
+  webpack-cli 4 could not load the ESM config, and webpack 5.44 needed
+  `--openssl-legacy-provider` for its MD4 hashing
+* Tests no longer need `--experimental-wasm-modules`; the core is instantiated
+  directly rather than through Node's experimental WebAssembly ESM integration
 
 
 3.2 (2024-11-23)

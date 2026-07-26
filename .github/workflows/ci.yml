@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22', '24']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate core.ts from core.ts.in
+        run: npm run build:core
+
+      - name: Compile the WebAssembly core
+        run: npm run build:wasm:debug
+
+      # Run each suite as its own step so a failure is obvious from the job
+      # summary without digging through a combined log.
+      - name: Z80 instruction tests
+        run: npm run test:z80
+
+      - name: Screen tests
+        run: npm run test:screen
+
+      - name: Renderer tests
+        run: npm run test:render
+
+      - name: Snapshot tests
+        run: npm run test:snapshot
+
+  build:
+    name: Build bundle
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Release build
+        run: npm run build:release
+
+      - name: Check expected artifacts exist
+        run: |
+          set -e
+          for f in \
+            dist/jsspeccy/jsspeccy-core.wasm \
+            dist/jsspeccy/jsspeccy.js \
+            dist/jsspeccy/jsspeccy-worker.js \
+            dist/jsspeccy/roms/48.rom \
+            dist/jsspeccy/roms/tc2048.rom \
+            dist/index.html
+          do
+            test -s "$f" || { echo "missing or empty: $f"; exit 1; }
+          done
+          echo "all expected artifacts present"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jsspeccy-dist
+          path: dist/
+          retention-days: 14
