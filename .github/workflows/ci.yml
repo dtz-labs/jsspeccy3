@@ -52,6 +52,9 @@ jobs:
       - name: Snapshot tests
         run: npm run test:snapshot
 
+      - name: Tape loading tests
+        run: npm run test:tapeload
+
   build:
     name: Build bundle
     runs-on: ubuntu-latest

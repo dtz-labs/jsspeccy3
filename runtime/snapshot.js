@@ -295,7 +295,13 @@ export function parseSZXFile(data) {
                     'im': file.getUint8(offset + 28),
                 };
                 snapshot.tstates = file.getUint32(offset + 29, true);
-                snapshot.halted = !!(file.getUint8(offset + 37) & 0x02);
+                /* chFlags is byte 34 of the 37-byte block. Reading byte 37
+                fell off the end into the next block's ID, which begins 'S'
+                for SPCR - and 0x53 & 0x02 is true, so every snapshot came
+                back halted. The CPU then sat on a phantom HALT until the
+                next interrupt, which does pc++ and so returned the tape
+                loading routine to 0x05e3 instead of 0x05e2. */
+                snapshot.halted = !!(file.getUint8(offset + 34) & 0x02);
                 // currently ignored:
                 // chHoldIntReqCycles, eilast, memptr
 
