@@ -101,6 +101,9 @@ class Emulator extends EventEmitter {
                             '48': {'default': 'tapeloaders/tape_48.szx', 'usr0': 'tapeloaders/tape_48.szx'},
                             '128': {'default': 'tapeloaders/tape_128.szx', 'usr0': 'tapeloaders/tape_128_usr0.szx'},
                             '5': {'default': 'tapeloaders/tape_pentagon.szx', 'usr0': 'tapeloaders/tape_pentagon_usr0.szx'},
+                            // the TC2048 ROM differs from 48.rom in 7 bytes,
+                            // none of them in the loader, so tape_48 works
+                            '2048': {'default': 'tapeloaders/tape_48.szx', 'usr0': 'tapeloaders/tape_48.szx'},
                         };
                         this.openUrl(new URL(TAPE_LOADERS_BY_MACHINE[this.machineType][this.tapeAutoLoadMode], scriptUrl));
                         if (!this.tapeTrapsEnabled) {
@@ -230,7 +233,9 @@ class Emulator extends EventEmitter {
     };
 
     setMachine(type) {
-        if (type != 128 && type != 5) type = 48;
+        if (type != 128 && type != 5 && type != 2048) type = 48;
+        // Timex machines render 512px-wide hi-res, so they need a wider canvas
+        this.displayHandler.setVideoMode(type == 2048);
         this.worker.postMessage({
             message: 'setMachineType',
             type,
@@ -487,6 +492,10 @@ window.JSSpeccy = (container, opts) => {
             emu.setMachine(5);
             emu.focus();
         });
+        const machineTC2048Item = machineMenu.addItem('Timex TC2048', () => {
+            emu.setMachine(2048);
+            emu.focus();
+        });
         const displayMenu = ui.menuBar.addMenu('Display');
 
         const zoomItemsBySize = {
@@ -519,18 +528,18 @@ window.JSSpeccy = (container, opts) => {
         setZoomCheckbox(ui.zoom);
 
         emu.on('setMachine', (type) => {
+            machine48Item.unsetBullet();
+            machine128Item.unsetBullet();
+            machinePentagonItem.unsetBullet();
+            machineTC2048Item.unsetBullet();
             if (type == 48) {
                 machine48Item.setBullet();
-                machine128Item.unsetBullet();
-                machinePentagonItem.unsetBullet();
             } else if (type == 128) {
-                machine48Item.unsetBullet();
                 machine128Item.setBullet();
-                machinePentagonItem.unsetBullet();
-            } else { // pentagon
-                machine48Item.unsetBullet();
-                machine128Item.unsetBullet();
+            } else if (type == 5) {
                 machinePentagonItem.setBullet();
+            } else if (type == 2048) {
+                machineTC2048Item.setBullet();
             }
         });
 

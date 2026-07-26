@@ -48,15 +48,19 @@ export class CanvasRenderer {
 
     setVideoMode(isTimex) {
         /* Timex hi-res is 512 pixels across, so Timex machines get a 640-wide
-        backing store and every non-hi-res pixel is written twice. The canvas
-        is displayed at the same physical size either way, since its CSS width
-        is set explicitly; aspect-ratio keeps `object-fit: contain` from
-        inferring 8:3 from the intrinsic size in fullscreen. */
+        backing store and every non-hi-res pixel is written twice.
+
+        That makes the backing store 8:3 while the display box stays 4:3, i.e.
+        the pixels are deliberately non-square. `object-fit: fill` is therefore
+        the correct mapping - `contain` would preserve the 8:3 intrinsic ratio
+        and letterbox the picture. For a 320x240 backing store the two are
+        equivalent, so this is safe for non-Timex machines too, and the display
+        box is kept at 4:3 by ui.js. */
         this.isTimex = isTimex;
         this.width = isTimex ? 640 : 320;
         this.canvas.width = this.width;
         this.canvas.height = 240;
-        this.canvas.style.aspectRatio = '4 / 3';
+        this.canvas.style.objectFit = 'fill';
         this.imageData = this.ctx.getImageData(0, 0, this.width, 240);
         this.pixels = new Uint32Array(this.imageData.data.buffer);
     }

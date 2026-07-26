@@ -309,8 +309,16 @@ export class UIController extends EventEmitter {
         this.appContainer.addEventListener('fullscreenchange', () => {
             if (document.fullscreenElement) {
                 this.isFullscreen = true;
-                this.canvas.style.width = '100%';
-                this.canvas.style.height = '100%';
+                /* Constrain the box to 4:3 rather than filling the viewport:
+                the canvas uses object-fit: fill, and its backing store is 8:3
+                on Timex machines, so stretching to the viewport would distort
+                the picture. */
+                this.canvas.style.width = 'auto';
+                this.canvas.style.height = 'auto';
+                this.canvas.style.aspectRatio = '4 / 3';
+                this.canvas.style.maxWidth = '100%';
+                this.canvas.style.maxHeight = '100%';
+                this.canvas.style.margin = 'auto';
 
                 if (this.uiEnabled) {
                     document.addEventListener('mousemove', fullscreenMouseMove);
@@ -393,6 +401,11 @@ export class UIController extends EventEmitter {
         }
         const displayWidth = 320 * this.zoom;
         const displayHeight = 240 * this.zoom;
+        /* clear the constraints applied while fullscreen */
+        this.canvas.style.aspectRatio = '';
+        this.canvas.style.maxWidth = '';
+        this.canvas.style.maxHeight = '';
+        this.canvas.style.margin = '';
         this.canvas.style.width = '' + displayWidth + 'px';
         this.canvas.style.height = '' + displayHeight + 'px';
         this.appContainer.style.width = '' + displayWidth + 'px';

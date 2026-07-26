@@ -182,7 +182,75 @@ function testMidFrameModeChange() {
     check(name, 'line 100 px 1', renderer.pixels[b100 + 1], renderer.palette[8]);
 }
 
+function testTimexStandardModeMatches48KDoubled() {
+    /* The strongest invariant available: in a standard (non-hi-res) mode the
+       Timex renderer must produce exactly the 320-wide output with every pixel
+       written twice. Any drift in border widths, group counts or cell decoding
+       shows up here. */
+    const name = 'Timex standard == 48K doubled';
+
+    const standard = new CanvasRenderer(makeStubCanvas());
+    const timex = new CanvasRenderer(makeStubCanvas());
+    timex.setVideoMode(true);
+
+    const build = () => {
+        const { buffer, bytes } = makeFrameBuffer({ mode: 0x00, borderColour: 2 });
+        // deterministic pseudo-random screen content
+        let seed = 12345;
+        for (let i = 0; i < MODE_LOG_OFFSET; i++) {
+            seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+            bytes[i] = (seed >> 16) & 0xff;
+        }
+        // border bytes must stay in palette range 0..7
+        const borderRun = (start, count) => {
+            for (let i = 0; i < count; i++) bytes[start + i] &= 0x07;
+        };
+        borderRun(0, 24 * 160);
+        for (let y = 0; y < 192; y++) {
+            borderRun(0x0f00 + y * 0x60, 16);
+            borderRun(0x0f00 + y * 0x60 + 0x50, 16);
+        }
+        borderRun(0x5700, 24 * 160);
+        // rewrite the mode log, which the noise fill clobbered
+        bytes[MODE_LOG_OFFSET] = 0x00;
+        bytes[MODE_LOG_OFFSET + 1] = 0x00;
+        bytes[MODE_LOG_OFFSET + 2] = 0x00;
+        bytes[MODE_LOG_OFFSET + 3] = 0x00;
+        bytes[MODE_LOG_OFFSET + 4] = 0xff;
+        bytes[MODE_LOG_OFFSET + 5] = 0xff;
+        return buffer;
+    };
+
+    // identical flash phase so FLASH cells decode the same way
+    standard.flashPhase = 0;
+    timex.flashPhase = 0;
+    standard.showFrame(build());
+    timex.showFrame(build());
+
+    let mismatches = 0;
+    let firstMismatch = null;
+    for (let y = 0; y < 240 && mismatches === 0; y++) {
+        for (let x = 0; x < 320; x++) {
+            const expected = standard.pixels[y * 320 + x];
+            const a = timex.pixels[y * 640 + x * 2];
+            const b = timex.pixels[y * 640 + x * 2 + 1];
+            if (a !== expected || b !== expected) {
+                mismatches++;
+                firstMismatch = { x, y };
+                break;
+            }
+        }
+    }
+    if (mismatches) {
+        failureCount++;
+        console.log(
+            `FAIL ${name}: first mismatch at x=${firstMismatch.x} y=${firstMismatch.y}`
+        );
+    }
+}
+
 testTimexGeometry();
+testTimexStandardModeMatches48KDoubled();
 testStandardGeometryUnchanged();
 testHiResDecoding();
 testHiResColourSelect();
