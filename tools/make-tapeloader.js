@@ -127,9 +127,15 @@ z80r.writeUInt32LE(core.getTStates(), 29);
 z80r.writeUInt8(core.getHalted() ? 0x02 : 0x00, 36);
 block('Z80R', z80r);
 
+/* Read the border colour back out of the frame buffer rather than assuming
+   one: byte 0 of the pixel log is the first top-border byte, which is the
+   border colour the ULA was displaying. Hardcoding it gave the Timex loaders
+   a black border where every other loader snapshot has white. */
+const frameBuffer = new Uint8Array(core.memory.buffer, core.FRAME_BUFFER, 1);
 const spcr = Buffer.alloc(8);
-spcr.writeUInt8(0, 0);      // border
+spcr.writeUInt8(frameBuffer[0] & 0x07, 0);
 block('SPCR', spcr);
+console.log(`border = ${frameBuffer[0] & 0x07}`);
 
 const scld = Buffer.alloc(2);
 scld.writeUInt8(core.readPort(0x00ff), 0);
