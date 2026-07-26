@@ -1,9 +1,9 @@
 /* End-to-end test of tape autoloading.
 
-   The unit tests on the snapshot parser all passed while tape autoloading
-   was broken, because the failure only showed up once the loader snapshot,
-   the ROM, the tape trap and the tape itself were working together. So this
-   test drives the whole path the
+   Unit tests on the snapshot parser and the paging logic both passed while
+   autoloading was broken on the Timex machines, because the failure only
+   showed up once the loader snapshot, the ROM, the tape trap and the tape
+   itself were all working together. So this test drives the whole path the
    browser drives: it loads a machine's ROMs, restores that machine's tape
    loader snapshot through the real parser, and runs frames while servicing
    tape traps exactly as runtime/worker.js does, then checks the program
@@ -33,12 +33,14 @@ const ROMS_BY_MACHINE = {
     // the Pentagon runs its own ROM 0 but shares the 128K's ROM 1
     5: [['pentagon-0.rom', 12], ['128-1.rom', 9], ['trdos.rom', 13]],
     2048: [['tc2048.rom', 14]],
+    2068: [['2068-home.rom', 15], ['2068-exrom.rom', 16]],
 };
 const LOADER_BY_MACHINE = {
     48: 'tape_48.szx',
     128: 'tape_128.szx',
     5: 'tape_pentagon.szx',
     2048: 'tape_2048.szx',
+    2068: 'tape_2068.szx',
 };
 
 const memory = new Uint8Array(core.memory.buffer);
@@ -125,6 +127,9 @@ function loadSnapshot(snapshot) {
     if ('timexScreenMode' in snapshot.ulaState) {
         core.writePort(0x00ff, snapshot.ulaState.timexScreenMode);
     }
+    if (snapshot.model == 2068 && 'timexBankEnable' in snapshot.ulaState) {
+        core.writePort(0x00f4, snapshot.ulaState.timexBankEnable);
+    }
     core.setTStates(snapshot.tstates);
 }
 
@@ -160,7 +165,7 @@ function trapTapeLoad() {
     }
 
     if (success) registerPairs[0] |= 0x0001; else registerPairs[0] &= 0xfffe;
-    core.setPC(0x05e2);
+    core.setPC(machineType == 2068 ? 0x0188 : 0x05e2);
 }
 
 /* --- the test ---------------------------------------------------------- */
@@ -217,13 +222,13 @@ function testAutoLoad(mt) {
     }
 
     /* Two traps: the header block, then the data block. Stopping after one
-       means the loader took the header and the ROM never came back for the
-       program itself. */
+       is how the Timex machines failed - the loader took the header and the
+       ROM never came back for the program. */
     check(name, 'tape blocks loaded', trapCount, 2);
     check(name, 'program reached RAM', findMarkerRun() >= 0, true);
 }
 
-for (const mt of [48, 128, 5, 2048]) testAutoLoad(mt);
+for (const mt of [48, 128, 5, 2048, 2068]) testAutoLoad(mt);
 
 if (failureCount) {
     console.log(`${failureCount} tape loading test failure(s)`);

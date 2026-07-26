@@ -70,7 +70,7 @@ function makeSZX({ machineId, sclrFirst }) {
         blocks.push(b);
     };
     const spcr = new Uint8Array([0x02, 0x11, 0x00, 0x00, 0, 0, 0, 0]);
-    const scld = new Uint8Array([0x06, 0x00]);
+    const scld = new Uint8Array([0x03, 0x06]);   // 0xF4 = 0x03, 0xFF = 0x06
     if (sclrFirst) {
         pushBlock('SCLD', scld);
         pushBlock('SPCR', spcr);
@@ -97,6 +97,50 @@ function testSZXTC2048() {
     check(name, 'model', snapshot.model, 2048);
     check(name, 'border', snapshot.ulaState.borderColour, 0x02);
     check(name, 'screen mode', snapshot.ulaState.timexScreenMode, 0x06);
+    check(name, 'bank enable', snapshot.ulaState.timexBankEnable, 0x03);
+}
+
+/* A Z80R block followed by SPCR, so the byte just past the end of Z80R is the
+   'S' of the next block ID. chFlags lives at byte 34 of the 37-byte block;
+   reading byte 37 instead picked up that 'S' (0x53), whose bit 1 is set, and
+   so reported every snapshot as halted. */
+function makeSZXWithZ80R({ halted }) {
+    const z80r = new Uint8Array(37);
+    new DataView(z80r.buffer).setUint16(22, 0x056b, true);   // PC
+    z80r[34] = halted ? 0x02 : 0x00;                         // chFlags
+    const spcr = new Uint8Array([0x02, 0x11, 0x00, 0x00, 0, 0, 0, 0]);
+
+    const blocks = [];
+    const pushBlock = (id, payload) => {
+        const b = new Uint8Array(8 + payload.length);
+        for (let i = 0; i < 4; i++) b[i] = id.charCodeAt(i);
+        new DataView(b.buffer).setUint32(4, payload.length, true);
+        b.set(payload, 8);
+        blocks.push(b);
+    };
+    pushBlock('Z80R', z80r);
+    pushBlock('SPCR', spcr);
+
+    const total = 8 + blocks.reduce((n, b) => n + b.length, 0);
+    const bytes = new Uint8Array(total);
+    bytes.set([0x5a, 0x58, 0x53, 0x54], 0);   // 'ZXST'
+    bytes[4] = 1;
+    bytes[5] = 4;
+    bytes[6] = 8;    // TC2048
+    bytes[7] = 0;
+    let offset = 8;
+    for (const b of blocks) { bytes.set(b, offset); offset += b.length; }
+    return bytes.buffer;
+}
+
+function testSZXHaltedFlag() {
+    const name = 'szx halted flag';
+    check(name, 'clear stays clear',
+        parseSZXFile(makeSZXWithZ80R({ halted: false })).halted, false);
+    check(name, 'set is read',
+        parseSZXFile(makeSZXWithZ80R({ halted: true })).halted, true);
+    check(name, 'PC still parsed',
+        parseSZXFile(makeSZXWithZ80R({ halted: false })).registers.PC, 0x056b);
 }
 
 function testSZXBlockOrderDoesNotClobber() {
@@ -110,6 +154,7 @@ testZ80TC2048();
 testZ80StillDetects48KAnd128K();
 testSZXTC2048();
 testSZXBlockOrderDoesNotClobber();
+testSZXHaltedFlag();
 
 if (failureCount) {
     console.log(`${failureCount} snapshot test failure(s)`);

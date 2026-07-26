@@ -9,6 +9,7 @@ let registerPairs = null;
 let tapePulses = null;
 
 let stopped = false;
+let machineType = 48;
 let tape = null;
 let tapeIsPlaying = false;
 
@@ -36,6 +37,7 @@ const loadMemoryPage = (page, data) => {
 };
 
 const loadSnapshot = (snapshot) => {
+    machineType = snapshot.model;
     core.setMachineType(snapshot.model);
     for (let page in snapshot.memoryPages) {
         loadMemoryPage(page, snapshot.memoryPages[page]);
@@ -57,6 +59,12 @@ const loadSnapshot = (snapshot) => {
     }
     if ('timexScreenMode' in snapshot.ulaState) {
         core.writePort(0x00ff, snapshot.ulaState.timexScreenMode);
+    }
+    /* After 0xFF, since bit 7 of it selects which bank 0xF4 switches to.
+    Only the 2068 has the MMU; on other machines 0xF4 has A0 low and would
+    reach the ULA instead, changing the border. */
+    if (snapshot.model == 2068 && 'timexBankEnable' in snapshot.ulaState) {
+        core.writePort(0x00f4, snapshot.ulaState.timexBankEnable);
     }
 
     core.setTStates(snapshot.tstates);
@@ -115,7 +123,9 @@ const trapTapeLoad = () => {
         /* reset carry to indicate failure */
         registerPairs[0] &= 0xfffe;
     }
-    core.setPC(0x05e2);  /* address at which to exit the tape trap */
+    /* Exit address of the tape loading routine. On the 2068 the whole routine
+    is relocated by -0x045a into the EXROM, so this moves with it. */
+    core.setPC(machineType == 2068 ? 0x0188 : 0x05e2);
 }
 
 onmessage = (e) => {
@@ -201,6 +211,7 @@ onmessage = (e) => {
             core.keyUp(e.data.row, e.data.mask);
             break;
         case 'setMachineType':
+            machineType = e.data.type;
             core.setMachineType(e.data.type);
             break;
         case 'reset':

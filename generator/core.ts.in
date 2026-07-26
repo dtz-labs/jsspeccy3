@@ -79,7 +79,7 @@ overflowSubTable = [0, FLAG_V, 0, 0, 0, 0, FLAG_V, 0];
 #alloc audioBufferLeft[1024]: f32
 export const AUDIO_BUFFER_LEFT:usize = (&audioBufferLeft);
 #alloc audioBufferRight[1024]: f32
-export const AUDIO_BUFFER_RIGHT:usize = (&audioBufferLeft);
+export const AUDIO_BUFFER_RIGHT:usize = (&audioBufferRight);
 
 #alloc tapePulses[10000]: u16
 export const TAPE_PULSES:usize = (&tapePulses);
@@ -1058,11 +1058,21 @@ export function runUntil(maxT:u32):i16 {
             }
         }
 
-        if (
-            (pc == 0x056b || pc == 0x0111)
-            && (memoryPageReadMap[0] == 18 || memoryPageReadMap[0] == 20 || memoryPageReadMap[0] == 28)
-            && tapeTrapsEnabled && willTrap
-        ) {
+        // Each trap address only belongs to its own ROM, so the address and
+        // the page it lives in have to be tested as a pair. Testing them as
+        // two independent sets made 0x0111 trap in the 48K-derived ROMs and
+        // 0x056b trap in the 2068's EXROM, where neither is LD-BYTES.
+        // 18 = 128K ROM 1, 20 = 48K ROM, 28 = TC2048 ROM, 32 = 2068 EXROM.
+        // The 2068's LD-BYTES is the 48K routine relocated by -0x045a into
+        // the EXROM, which puts it at 0x0111.
+        const atLDBytes = (
+            (pc == 0x056b && (
+                memoryPageReadMap[0] == 18 || memoryPageReadMap[0] == 20
+                || memoryPageReadMap[0] == 28
+            ))
+            || (pc == 0x0111 && memoryPageReadMap[0] == 32)
+        );
+        if (atLDBytes && tapeTrapsEnabled && willTrap) {
             // tape loading trap
             return 2;
         }

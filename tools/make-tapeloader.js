@@ -1,17 +1,14 @@
-/* Generate the tape loader snapshot for the TC2048.
+/* Generate a tape loader snapshot for a Timex machine.
 
    A tape loader snapshot is the machine parked at the point where it is
    waiting for tape data, so the emulator can drop the user straight there
    instead of making them type LOAD "" by hand.
 
-   The TC2048 cannot simply reuse tape_48.szx. That snapshot records its
-   machine as a 48K, and loadSnapshot() feeds the recorded machine straight
-   into core.setMachineType(), so opening a tape would quietly switch the
-   emulator out of TC2048 mode and leave it there.
-
-   Producing the snapshot here, by booting the machine from its own ROM and
-   typing the command, keeps it reproducible rather than being an opaque
-   binary someone once made in another emulator.
+   The 48K-derived machines can reuse tape_48.szx, but the 2068 has a
+   completely different ROM, so its snapshot has to be produced by actually
+   booting the machine and typing the command. Doing that here, from the ROM,
+   keeps the result reproducible rather than being an opaque binary someone
+   once made in another emulator.
 
    Usage: node tools/make-tapeloader.js <machineType> <output.szx>
 */
@@ -30,13 +27,9 @@ if (!machineType || !outPath) {
 
 const ROMS_BY_MACHINE = {
     2048: [['roms/tc2048.rom', 14]],
+    2068: [['roms/2068-home.rom', 15], ['roms/2068-exrom.rom', 16]],
 };
-const SZX_MACHINE_ID = { 2048: 8 };
-
-if (!(machineType in ROMS_BY_MACHINE)) {
-    console.log(`No ROM mapping for machine ${machineType}`);
-    exit(1);
-}
+const SZX_MACHINE_ID = { 2048: 8, 2068: 9 };
 
 const memory = new Uint8Array(core.memory.buffer);
 function loadRom(file, page16k) {
@@ -96,8 +89,11 @@ pressKeys(['ENTER']);
    This matters: with tape traps enabled the emulator never plays the tape, it
    just waits for the trap. A snapshot stopped anywhere else sits in LD-BYTES
    waiting for edges that will never arrive, and the load hangs after the
-   header. Every stock loader snapshot is parked on 0x056b for this reason. */
-const TRAP_PC = 0x056b;
+   header. Every stock loader snapshot is parked on 0x056b for this reason.
+
+   The 2068's LD-BYTES is the 48K routine relocated by -0x045a into the EXROM,
+   so its trap address is 0x0111. */
+const TRAP_PC = (machineType === 2068) ? 0x0111 : 0x056b;
 
 core.setTapeTraps(true);   // runFrame returns 2 the moment we reach the trap
 let reached = false;
@@ -141,8 +137,8 @@ block('Z80R', z80r);
 
 /* Read the border colour back out of the frame buffer rather than assuming
    one: byte 0 of the pixel log is the first top-border byte, which is the
-   border colour the ULA was displaying. Hardcoding it gave the loader a
-   black border where every other loader snapshot has white. */
+   border colour the ULA was displaying. Hardcoding it gave the Timex loaders
+   a black border where every other loader snapshot has white. */
 const frameBuffer = new Uint8Array(core.memory.buffer, core.FRAME_BUFFER, 1);
 const spcr = Buffer.alloc(8);
 spcr.writeUInt8(frameBuffer[0] & 0x07, 0);
@@ -150,16 +146,19 @@ block('SPCR', spcr);
 console.log(`border = ${frameBuffer[0] & 0x07}`);
 
 /* SCLD block, in the order Fuse writes it: horizontal select register
-   (port 0xF4) then display enhancement control (port 0xFF). The TC2048 has
-   no MMU, so 0xF4 is written as zero; on it that port has A0 low and would
-   read back the keyboard. */
+   (port 0xF4) then display enhancement control (port 0xFF). The 2068 loader
+   is parked inside the EXROM, so without the 0xF4 value the snapshot would
+   restore with the EXROM unmapped and PC pointing into the HOME ROM. */
 const scld = Buffer.alloc(2);
-scld.writeUInt8(0, 0);
+// only the 2068 has the MMU; on other machines port 0xF4 has A0 low and
+// reads back the keyboard, which would be garbage here
+scld.writeUInt8(machineType === 2068 ? core.readPort(0x00f4) : 0, 0);
 scld.writeUInt8(core.readPort(0x00ff), 1);
 block('SCLD', scld);
-console.log(`0xFF = 0x${scld[1].toString(16)}`);
+console.log(`0xF4 = 0x${scld[0].toString(16)}, 0xFF = 0x${scld[1].toString(16)}`);
 
-/* RAM banks, zlib-compressed as the other loader snapshots are. */
+/* RAM banks, zlib-compressed as the other loader snapshots are. 16K bank n
+   lives at 8K pages 2n, i.e. byte offset n * 0x4000. */
 for (const bank of [5, 2, 0]) {
     const raw = Buffer.from(
         memory.buffer, core.MACHINE_MEMORY + bank * 0x4000, 0x4000
