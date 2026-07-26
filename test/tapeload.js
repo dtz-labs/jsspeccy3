@@ -30,12 +30,15 @@ function check(testName, label, actual, expected) {
 const ROMS_BY_MACHINE = {
     48: [['48.rom', 10]],
     128: [['128-0.rom', 8], ['128-1.rom', 9]],
+    // the Pentagon runs its own ROM 0 but shares the 128K's ROM 1
+    5: [['pentagon-0.rom', 12], ['128-1.rom', 9], ['trdos.rom', 13]],
     2048: [['tc2048.rom', 14]],
     2068: [['2068-home.rom', 15], ['2068-exrom.rom', 16]],
 };
 const LOADER_BY_MACHINE = {
     48: 'tape_48.szx',
     128: 'tape_128.szx',
+    5: 'tape_pentagon.szx',
     2048: 'tape_2048.szx',
     2068: 'tape_2068.szx',
 };
@@ -225,7 +228,7 @@ function testAutoLoad(mt) {
     check(name, 'program reached RAM', findMarkerRun() >= 0, true);
 }
 
-for (const mt of [48, 128, 2048, 2068]) testAutoLoad(mt);
+for (const mt of [48, 128, 5, 2048, 2068]) testAutoLoad(mt);
 
 if (failureCount) {
     console.log(`${failureCount} tape loading test failure(s)`);

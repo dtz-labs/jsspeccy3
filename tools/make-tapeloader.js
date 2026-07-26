@@ -132,7 +132,7 @@ z80r.writeUInt8(core.getIFF1() ? 1 : 0, 26);
 z80r.writeUInt8(core.getIFF2() ? 1 : 0, 27);
 z80r.writeUInt8(core.getIM(), 28);
 z80r.writeUInt32LE(core.getTStates(), 29);
-z80r.writeUInt8(core.getHalted() ? 0x02 : 0x00, 36);
+z80r.writeUInt8(core.getHalted() ? 0x02 : 0x00, 34);   // chFlags
 block('Z80R', z80r);
 
 /* Read the border colour back out of the frame buffer rather than assuming
