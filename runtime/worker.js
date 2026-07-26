@@ -52,8 +52,11 @@ const loadSnapshot = (snapshot) => {
     core.setHalted(!!snapshot.halted);
 
     core.writePort(0x00fe, snapshot.ulaState.borderColour);
-    if (snapshot.model != 48) {
+    if (snapshot.model == 128 || snapshot.model == 5) {
         core.writePort(0x7ffd, snapshot.ulaState.pagingFlags);
+    }
+    if ('timexScreenMode' in snapshot.ulaState) {
+        core.writePort(0x00ff, snapshot.ulaState.timexScreenMode);
     }
 
     core.setTStates(snapshot.tstates);
