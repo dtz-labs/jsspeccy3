@@ -413,6 +413,11 @@ class Emulator extends EventEmitter {
         this.autoLoadTapes = val;
         this.emit('setAutoLoadTapes', val);
     }
+    setRunInBackground(val) {
+        this.runInBackground = val;
+        this.updatePacingMode();
+        this.emit('setRunInBackground', val);
+    }
     setTapeTraps(val) {
         this.tapeTrapsEnabled = val;
         this.worker.postMessage({
@@ -459,6 +464,7 @@ window.JSSpeccy = (container, opts) => {
         tapeAutoLoadMode: opts.tapeAutoLoadMode || 'default',
         openUrl: opts.openUrl,
         tapeTrapsEnabled: ('tapeTrapsEnabled' in opts) ? opts.tapeTrapsEnabled : true,
+        runInBackground: ('runInBackground' in opts) ? opts.runInBackground : true,
         keyboardEnabled: keyboardEnabled,
         keyboardMap: opts.keyboardMap || 'standard',
     });
@@ -513,6 +519,20 @@ window.JSSpeccy = (container, opts) => {
         }
         emu.on('setTapeTraps', updateTapeTrapsCheckbox);
         updateTapeTrapsCheckbox();
+
+        const runInBackgroundMenuItem = fileMenu.addItem('Run in background', () => {
+            emu.setRunInBackground(!emu.runInBackground);
+            emu.focus();
+        });
+        const updateRunInBackgroundCheckbox = () => {
+            if (emu.runInBackground) {
+                runInBackgroundMenuItem.setCheckbox();
+            } else {
+                runInBackgroundMenuItem.unsetCheckbox();
+            }
+        }
+        emu.on('setRunInBackground', updateRunInBackgroundCheckbox);
+        updateRunInBackgroundCheckbox();
 
         const machineMenu = ui.menuBar.addMenu('Machine');
         const machine48Item = machineMenu.addItem('Spectrum 48K', () => {
