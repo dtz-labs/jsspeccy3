@@ -1,6 +1,10 @@
 Unreleased
 ----------
 
+* Keep running - with audio - while the page is hidden, by handing frame
+  pacing to the emulation worker, whose timers are not throttled in
+  background tabs. Controlled by the "Run in background" File menu option
+  and the `runInBackground` constructor option (default on)
 * Add Timex TC2048 machine support, with all three SCLD video modes (dual
   display file, hi-colour 8x1 attributes, and hi-res 512x192), including
   switching screen mode part-way through a frame
