@@ -773,6 +773,7 @@ window.JSSpeccy = (container, opts) => {
         enterFullscreen: () => {ui.enterFullscreen();},
         exitFullscreen: () => {ui.exitFullscreen();},
         setMachine: (model) => {emu.setMachine(model);},
+        setRunInBackground: (val) => {emu.setRunInBackground(val);},
         openFileDialog: () => {openFileDialog();},
         openUrl: (url) => {
             emu.openUrl(url).catch((err) => {alert(err);});
