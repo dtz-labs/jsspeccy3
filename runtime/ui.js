@@ -23,9 +23,13 @@ export class MenuBar {
 
     enterFullscreen() {
         this.elem.style.position = 'absolute';
+        /* the canvas is absolutely positioned in fullscreen and appears
+        later in the DOM, so lift the menu bar above it */
+        this.elem.style.zIndex = '1';
     }
     exitFullscreen() {
         this.elem.style.position = 'static';
+        this.elem.style.zIndex = '';
     }
     show() {
         this.elem.style.visibility = 'visible';
@@ -158,9 +162,12 @@ export class Toolbar {
     }
     enterFullscreen() {
         this.elem.style.position = 'absolute';
+        /* keep the toolbar above the absolutely positioned canvas */
+        this.elem.style.zIndex = '1';
     }
     exitFullscreen() {
         this.elem.style.position = 'static';
+        this.elem.style.zIndex = '';
     }
     show() {
         this.elem.style.visibility = 'visible';
@@ -309,15 +316,19 @@ export class UIController extends EventEmitter {
         this.appContainer.addEventListener('fullscreenchange', () => {
             if (document.fullscreenElement) {
                 this.isFullscreen = true;
-                /* Constrain the box to 4:3 rather than filling the viewport:
-                the canvas uses object-fit: fill, and its backing store is 8:3
-                on Timex machines, so stretching to the viewport would distort
-                the picture. */
-                this.canvas.style.width = 'auto';
-                this.canvas.style.height = 'auto';
-                this.canvas.style.aspectRatio = '4 / 3';
-                this.canvas.style.maxWidth = '100%';
-                this.canvas.style.maxHeight = '100%';
+                /* Size the canvas to the largest 4:3 box that fits the
+                viewport rather than filling it: the canvas uses
+                object-fit: fill, and its backing store is 8:3 on Timex
+                machines, so stretching to the viewport would distort the
+                picture. Both dimensions are computed explicitly because an
+                auto-sized canvas falls back to its backing store size
+                (max-width / max-height never scale up), and browsers
+                disagree on how aspect-ratio interacts with a canvas's
+                intrinsic size. */
+                this.canvas.style.width = 'min(100vw, calc(100vh * 4 / 3))';
+                this.canvas.style.height = 'min(100vh, calc(100vw * 3 / 4))';
+                this.canvas.style.position = 'absolute';
+                this.canvas.style.inset = '0';
                 this.canvas.style.margin = 'auto';
 
                 if (this.uiEnabled) {
@@ -402,9 +413,8 @@ export class UIController extends EventEmitter {
         const displayWidth = 320 * this.zoom;
         const displayHeight = 240 * this.zoom;
         /* clear the constraints applied while fullscreen */
-        this.canvas.style.aspectRatio = '';
-        this.canvas.style.maxWidth = '';
-        this.canvas.style.maxHeight = '';
+        this.canvas.style.position = '';
+        this.canvas.style.inset = '';
         this.canvas.style.margin = '';
         this.canvas.style.width = '' + displayWidth + 'px';
         this.canvas.style.height = '' + displayHeight + 'px';
